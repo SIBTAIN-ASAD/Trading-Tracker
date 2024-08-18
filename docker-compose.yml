@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # React Web Service
+  react-app:
+    # Build from Dockerfile
+    build:
+      context: ./Frontend/my-trading-app
+      dockerfile: Dockerfile
+    # Expose 3000 as hosting port & 3000 in container port
+    ports:
+      - "3000:3000" 
+    volumes:
+      #Provide your license key for activation as environment variable to docker container
+       - ./Frontend/my-trading-app:/usr/src/app
+       - /usr/src/app/node_modules
+
+  # Django Service
+  django_backend:
+    build: 
+      context: .
+      dockerfile: Backend/Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql_db
+      - mongo_db
+    environment:
+      - DEBUG=0  # Set to 0 in production
+    env_file:
+      - secrets.env
+
+
+  # MySQL Database Service
+  mysql_db:
+    image: mysql:latest
+    environment:
+      MYSQL_DATABASE: 'investors_db'
+      MYSQL_USER: 'user'
+      MYSQL_PASSWORD: 'password'
+      MYSQL_ROOT_PASSWORD: 'password'
+    ports:
+      - "3307:3306" # To remove potential conflict in already used port
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  # MongoDB Database Service
+  mongo_db:
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_DATABASE: 'api_data_db'
+      MONGO_INITDB_ROOT_USERNAME: 'user'
+      MONGO_INITDB_ROOT_PASSWORD: 'password'
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  # PhpMyAdmin for MySQL Database Management
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    environment:
+      PMA_HOST: mysql_db
+      PMA_USER: 'user'
+      PMA_PASSWORD: 'password'
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql_db
+
+  # Mongo Express for MongoDB Management
+  mongo-express:
+    image: mongo-express
+    environment:
+      ME_CONFIG_MONGODB_SERVER: api_data_db
+      ME_CONFIG_MONGODB_ADMINUSERNAME: user
+      ME_CONFIG_MONGODB_ADMINPASSWORD: password
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongo_db
+
+# Volumes for data persistence
+volumes:
+  mysql_data:
+  mongo_data:
